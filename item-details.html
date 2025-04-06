@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Item Details</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="back-button">
+            <a href="index.html">← Back to Generator</a>
+        </div>
+
+        <div class="item-details">
+            <div class="item-preview">
+                <canvas id="itemPreview"></canvas>
+            </div>
+
+            <div class="item-info">
+                <h1 id="itemName">Loading...</h1>
+                <p id="itemDescription" class="description"></p>
+
+                <div class="item-metadata">
+                    <div class="metadata-row">
+                        <span class="label">Type:</span>
+                        <span id="itemType"></span>
+                    </div>
+                    <div class="metadata-row">
+                        <span class="label">Rarity:</span>
+                        <span id="itemRarity"></span>
+                    </div>
+                </div>
+
+                <div class="stats-section">
+                    <h2>Modifiers</h2>
+                    <div class="stats-grid">
+                        <div class="stat">
+                            <span class="stat-label">STR</span>
+                            <span id="strMod" class="stat-value"></span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-label">DEX</span>
+                            <span id="dexMod" class="stat-value"></span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-label">CON</span>
+                            <span id="conMod" class="stat-value"></span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-label">INT</span>
+                            <span id="intMod" class="stat-value"></span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-label">WIS</span>
+                            <span id="wisMod" class="stat-value"></span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-label">CHA</span>
+                            <span id="chaMod" class="stat-value"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="item.js"></script>
+    <script>
+        // Get item ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const itemId = urlParams.get('id');
+
+        // Load saved items
+        const savedItemsJson = localStorage.getItem('saved_items');
+        if (!savedItemsJson) {
+            alert('No saved items found');
+            window.location.href = 'index.html';
+        }
+
+        const savedItems = JSON.parse(savedItemsJson).map(itemData => Item.fromJSON(itemData));
+        const item = savedItems.find(i => i.id === itemId);
+
+        if (!item) {
+            alert('Item not found');
+            window.location.href = 'index.html';
+        }
+
+        // Update UI with item details
+        document.getElementById('itemName').textContent = item.name;
+        document.getElementById('itemDescription').textContent = item.metadata.description;
+        document.getElementById('itemType').textContent = item.metadata.type;
+        document.getElementById('itemRarity').textContent = item.metadata.rarity;
+
+        // Update stat modifiers
+        const stats = item.metadata.stats;
+        document.getElementById('strMod').textContent = formatModifier(stats.strength);
+        document.getElementById('dexMod').textContent = formatModifier(stats.dexterity);
+        document.getElementById('conMod').textContent = formatModifier(stats.constitution);
+        document.getElementById('intMod').textContent = formatModifier(stats.intelligence);
+        document.getElementById('wisMod').textContent = formatModifier(stats.wisdom);
+        document.getElementById('chaMod').textContent = formatModifier(stats.charisma);
+
+        // Render item preview
+        const canvas = document.getElementById('itemPreview');
+        canvas.width = item.gridSize;
+        canvas.height = item.gridSize;
+        item.render(canvas);
+
+        function formatModifier(value) {
+            return value >= 0 ? `+${value}` : value.toString();
+        }
+    </script>
+</body>
+</html> 

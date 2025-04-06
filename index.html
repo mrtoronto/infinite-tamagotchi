@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pixel Character Generator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Pixel Character Generator</h1>
+        
+        <!-- API Key Input -->
+        <div class="api-key-section">
+            <div class="api-key-input">
+                <input type="password" id="apiKey" placeholder="Enter your OpenAI API Key">
+                <button id="saveApiKey">Save API Key</button>
+            </div>
+            <div class="api-key-input">
+                <input type="password" id="groqApiKey" placeholder="Enter your Groq API Key">
+                <button id="saveGroqApiKey">Save Groq API Key</button>
+            </div>
+            <div class="model-selector">
+                <label>Model:</label>
+                <select id="modelSelect">
+                    <option value="gpt-4o-mini">GPT-4o Mini</option>
+                    <option value="gpt-4o">GPT-4o</option>
+                    <option value="llama-3.3-70b-versatile">Llama 3.3 70B (Groq)</option>
+                    <option value="llama-4-scout-17b-16e-instruct">Llama 4 Scout 17B (Groq)</option>
+                    <option value="llama-4-maverick-17b-128e-instruct">Llama 4 Maverick 17B (Groq)</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Grid Size Selection -->
+        <div class="grid-size-section">
+            <label for="gridSize">Grid Size:</label>
+            <select id="gridSize">
+                <option value="32">32x32</option>
+                <option value="64">64x64</option>
+                <option value="128" selected>128x128</option>
+                <option value="256">256x256</option>
+                <option value="512">512x512</option>
+                <option value="1024">1024x1024</option>
+                <option value="2048">2048x2048</option>
+            </select>
+            <div class="shape-options">
+                <label class="toggle-label">
+                    <input type="checkbox" id="enableCircles">
+                    Enable Circles
+                </label>
+            </div>
+        </div>
+
+        <!-- Character Generation -->
+        <div class="generation-section">
+            <input type="text" id="characterPrompt" placeholder="Describe your character">
+            <button id="generateCharacters">
+                Generate Character
+                <div class="button-spinner"></div>
+            </button>
+        </div>
+
+        <!-- Generation Progress -->
+        <div id="generationProgress" class="generation-progress hidden">
+            <div class="progress-grid">
+                <div class="progress-cell" id="progress-0">
+                    <div class="progress-step">
+                        <h3>Planning Character Parts</h3>
+                        <div class="planningNotes progress-notes"></div>
+                    </div>
+                    <div class="progress-step">
+                        <h3>Generating Parts</h3>
+                        <div class="currentPart current-part"></div>
+                        <div class="partProgress part-progress"></div>
+                    </div>
+                    <div class="progress-step">
+                        <h3>Finalizing Character</h3>
+                        <div class="finalizingNotes progress-notes"></div>
+                    </div>
+                </div>
+                <div class="progress-cell" id="progress-1">
+                    <div class="progress-step">
+                        <h3>Planning Character Parts</h3>
+                        <div class="planningNotes progress-notes"></div>
+                    </div>
+                    <div class="progress-step">
+                        <h3>Generating Parts</h3>
+                        <div class="currentPart current-part"></div>
+                        <div class="partProgress part-progress"></div>
+                    </div>
+                    <div class="progress-step">
+                        <h3>Finalizing Character</h3>
+                        <div class="finalizingNotes progress-notes"></div>
+                    </div>
+                </div>
+                <div class="progress-cell" id="progress-2">
+                    <div class="progress-step">
+                        <h3>Planning Character Parts</h3>
+                        <div class="planningNotes progress-notes"></div>
+                    </div>
+                    <div class="progress-step">
+                        <h3>Generating Parts</h3>
+                        <div class="currentPart current-part"></div>
+                        <div class="partProgress part-progress"></div>
+                    </div>
+                    <div class="progress-step">
+                        <h3>Finalizing Character</h3>
+                        <div class="finalizingNotes progress-notes"></div>
+                    </div>
+                </div>
+                <div class="progress-cell" id="progress-3">
+                    <div class="progress-step">
+                        <h3>Planning Character Parts</h3>
+                        <div class="planningNotes progress-notes"></div>
+                    </div>
+                    <div class="progress-step">
+                        <h3>Generating Parts</h3>
+                        <div class="currentPart current-part"></div>
+                        <div class="partProgress part-progress"></div>
+                    </div>
+                    <div class="progress-step">
+                        <h3>Finalizing Character</h3>
+                        <div class="finalizingNotes progress-notes"></div>
+                    </div>
+                </div>
+                <div class="progress-cell" id="progress-4">
+                    <div class="progress-step">
+                        <h3>Planning Character Parts</h3>
+                        <div class="planningNotes progress-notes"></div>
+                    </div>
+                    <div class="progress-step">
+                        <h3>Generating Parts</h3>
+                        <div class="currentPart current-part"></div>
+                        <div class="partProgress part-progress"></div>
+                    </div>
+                    <div class="progress-step">
+                        <h3>Finalizing Character</h3>
+                        <div class="finalizingNotes progress-notes"></div>
+                    </div>
+                </div>
+                <div class="progress-cell" id="progress-5">
+                    <div class="progress-step">
+                        <h3>Planning Character Parts</h3>
+                        <div class="planningNotes progress-notes"></div>
+                    </div>
+                    <div class="progress-step">
+                        <h3>Generating Parts</h3>
+                        <div class="currentPart current-part"></div>
+                        <div class="partProgress part-progress"></div>
+                    </div>
+                    <div class="progress-step">
+                        <h3>Finalizing Character</h3>
+                        <div class="finalizingNotes progress-notes"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div id="loadingIndicator" class="loading-indicator hidden">
+            <div class="spinner"></div>
+            <p>Generating characters...</p>
+        </div>
+
+        <!-- Character Grid -->
+        <div id="characterGrid" class="character-grid">
+            <!-- Characters will be dynamically added here -->
+            <div class="character-cell" id="character-0"></div>
+            <div class="character-cell" id="character-1"></div>
+            <div class="character-cell" id="character-2"></div>
+            <div class="character-cell" id="character-3"></div>
+            <div class="character-cell" id="character-4"></div>
+            <div class="character-cell" id="character-5"></div>
+        </div>
+
+        <!-- Save Character Section -->
+        <div id="saveSection" class="save-section hidden">
+            <input type="text" id="characterName" placeholder="Name your character">
+            <button id="saveCharacter">
+                Save Character
+                <div class="button-spinner"></div>
+            </button>
+        </div>
+
+        <!-- Saved Characters -->
+        <div class="saved-characters-section">
+            <h2>Your Characters</h2>
+            <div id="savedCharacters" class="saved-characters-grid">
+                <!-- Saved characters will be displayed here -->
+            </div>
+        </div>
+
+        <!-- Item Generation Section -->
+        <div class="item-section">
+            <h2>Item Generator</h2>
+            <div class="generation-section">
+                <input type="text" id="itemPrompt" placeholder="Describe your item">
+                <button id="generateItems">
+                    Generate Items
+                    <div class="button-spinner"></div>
+                </button>
+            </div>
+
+            <!-- Item Grid -->
+            <div id="itemGrid" class="item-grid">
+                <!-- Items will be dynamically added here -->
+            </div>
+
+            <!-- Save Item Section -->
+            <div id="itemSaveSection" class="save-section hidden">
+                <input type="text" id="itemName" placeholder="Name your item">
+                <button id="saveItem">
+                    Save Item
+                    <div class="button-spinner"></div>
+                </button>
+            </div>
+
+            <!-- Saved Items -->
+            <div class="saved-items-section">
+                <h2>Your Items</h2>
+                <div id="savedItems" class="saved-items-grid">
+                    <!-- Saved items will be displayed here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Background Color Selection -->
+        <div class="background-color-section">
+            <h3>Preview Background</h3>
+            <div class="color-presets">
+                <button class="color-preset" data-color="#f0f0f0" style="background-color: #f0f0f0"></button>
+                <button class="color-preset" data-color="#ffffff" style="background-color: #ffffff"></button>
+                <button class="color-preset" data-color="#000000" style="background-color: #000000"></button>
+                <button class="color-preset" data-color="#264653" style="background-color: #264653"></button>
+                <button class="color-preset" data-color="#2a9d8f" style="background-color: #2a9d8f"></button>
+                <div class="custom-color">
+                    <input type="color" id="customBackgroundColor" value="#f0f0f0" title="Choose custom color">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="character.js"></script>
+    <script src="llm-utils.js"></script>
+    <script src="prompts.js"></script>
+    <script src="character-generator.js"></script>
+    <script src="item.js"></script>
+    <script src="item-generator.js"></script>
+    <script src="app.js"></script>
+</body>
+</html> 

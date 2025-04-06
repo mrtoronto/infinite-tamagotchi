@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Character Details - Pixel Character Generator</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="character-details.css">
+</head>
+<body>
+    <div class="container">
+        <div class="details-header">
+            <a href="index.html" class="back-button">← Back to Gallery</a>
+        </div>
+        <div class="character-details">
+            <div class="left-column">
+                <h2 id="characterName"></h2>
+                <div class="character-portrait">
+                    <canvas id="characterPortrait"></canvas>
+                    <div class="character-actions">
+                        <button id="downloadButton">Download PNG</button>
+                    </div>
+                </div>
+                <div class="generation-prompt">
+                    <h3>Original Concept</h3>
+                    <p id="generationPrompt" class="prompt-text"></p>
+                    <h3>Variation Used</h3>
+                    <p id="variationPrompt" class="prompt-text"></p>
+                </div>
+                <div class="character-description">
+                    <h3>Description</h3>
+                    <p id="characterDescription"></p>
+                </div>
+            </div>
+            <div class="right-column">
+                <div class="character-stats">
+                    <h3>Stats</h3>
+                    <div id="statsGrid"></div>
+                </div>
+                <div class="character-equipment">
+                    <h3>Equipment Slots</h3>
+                    <div id="equipmentGrid"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="character.js"></script>
+    <script src="item.js"></script>
+    <script src="llm-utils.js"></script>
+    <script src="prompts.js"></script>
+    <script src="character-details.js"></script>
+</body>
+</html> 
