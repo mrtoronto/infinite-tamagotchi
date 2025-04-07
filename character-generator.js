@@ -8,7 +8,7 @@ class CharacterGenerator {
     }
 
     async planCharacterParts(apiKey, prompt, model = 'gpt-4o-mini') {
-        const planningPrompt = `You are an expert character designer. Your task is to plan out the parts needed to create a pixel art character.
+        const planningPrompt = `You are an expert character designer. Your task is to plan out the parts needed to create a cohesive pixel art character.
 
 For any character, you MUST include:
 1. Eyes - Essential for bringing the character to life
@@ -20,6 +20,15 @@ Then, determine what other parts are needed based on the character description. 
 - A ghost might need: core, wisps, aura
 - A robot might need: head, body, arms, legs, antenna
 
+IMPORTANT: For each part, provide specific design guidance that ensures cohesion with the overall character.
+Consider:
+- How this part connects visually with others
+- Specific color relationships between parts
+- Texture and style consistency
+- Size and proportion relationships
+- How it contributes to the character's personality
+- Any unique features or details it should have
+
 Return ONLY a JSON object with:
 {
     "parts": [
@@ -27,11 +36,14 @@ Return ONLY a JSON object with:
             "id": "unique_id",
             "name": "part name",
             "description": "brief description of this part's role in the character",
+            "design_guidance": "Specific instructions for how this part should be designed to maintain cohesion",
             "suggested_colors": ["#HEX1", "#HEX2"],
             "z_index_range": {"min": 0, "max": 100}
         }
     ],
-    "design_notes": "Brief notes about the overall character design strategy"
+    "design_notes": "Brief notes about the overall character design strategy",
+    "color_strategy": "How colors should work together across all parts",
+    "style_guide": "Specific style elements that should be consistent across all parts"
 }
 
 The parts MUST be ordered in a logical way for layered construction (background to foreground).
@@ -54,6 +66,7 @@ Eyes and mouth should be among the last parts added to ensure they appear on top
                                         id: { type: 'string' },
                                         name: { type: 'string' },
                                         description: { type: 'string' },
+                                        design_guidance: { type: 'string' },
                                         suggested_colors: {
                                             type: 'array',
                                             items: { type: 'string' }
@@ -68,7 +81,9 @@ Eyes and mouth should be among the last parts added to ensure they appear on top
                                     }
                                 }
                             },
-                            design_notes: { type: 'string' }
+                            design_notes: { type: 'string' },
+                            color_strategy: { type: 'string' },
+                            style_guide: { type: 'string' }
                         }
                     }
                 },
@@ -79,7 +94,17 @@ Eyes and mouth should be among the last parts added to ensure they appear on top
             this.currentParts = response.parts;
             this.currentPartIndex = 0;
             this.designNotes = response.design_notes;
-            return response;
+            this.colorStrategy = response.color_strategy;
+            this.styleGuide = response.style_guide;
+
+            // Return both the response data and token usage
+            return {
+                parts: response.parts,
+                design_notes: response.design_notes,
+                color_strategy: response.color_strategy,
+                style_guide: response.style_guide,
+                usage: response._raw?.usage || { input_tokens: 0, output_tokens: 0 }
+            };
         } catch (error) {
             console.error('Error planning character parts:', error);
             throw error;
@@ -99,6 +124,15 @@ Eyes and mouth should be among the last parts added to ensure they appear on top
 
 Overall Character Design Strategy:
 ${this.designNotes}
+
+Color Strategy:
+${this.colorStrategy}
+
+Style Guide:
+${this.styleGuide}
+
+SPECIFIC GUIDANCE FOR THIS PART:
+${currentPart.design_guidance}
 
 IMPORTANT DESIGN PHILOSOPHY:
 - Do NOT aim for minimalism - use as many shapes as needed for high-quality output
@@ -181,10 +215,13 @@ Return ONLY a JSON object with an array of shapes for this part:
             }
 
             this.currentPartIndex++;
+
+            // Return both the result data and token usage
             return {
                 part: currentPart,
                 shapes: newShapes,
-                isComplete: this.currentPartIndex >= this.currentParts.length
+                isComplete: this.currentPartIndex >= this.currentParts.length,
+                usage: response._raw?.usage || { input_tokens: 0, output_tokens: 0 }
             };
         } catch (error) {
             console.error('Error generating character part:', error);
@@ -331,8 +368,16 @@ Shape type must be: ${this.enableCircles ? '"rectangle" or "circle"' : '"rectang
                 finalShapes = [...finalShapes, ...newShapes];
             }
 
+            // Update the character with final shapes
             this.currentCharacter.shapes = finalShapes;
-            return this.currentCharacter;
+
+            // Return the finalization result with the updated character and token usage
+            return {
+                finalResult: response,
+                character: this.currentCharacter,
+                usage: response._raw?.usage || { input_tokens: 0, output_tokens: 0 }
+            };
+
         } catch (error) {
             console.error('Error finalizing character:', error);
             throw error;

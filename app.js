@@ -9,6 +9,34 @@ class PixelCharacterGenerator {
         this.gridSize = parseInt(localStorage.getItem('grid_size') || '128');
         this.backgroundColor = localStorage.getItem('preview_background') || '#f0f0f0';
         this.enableCircles = localStorage.getItem('enable_circles') === 'true';
+        this.totalTokens = {
+            input: 0,
+            output: 0,
+            inputPrice: 0,
+            outputPrice: 0
+        };
+        this.modelPrices = {
+            'gpt-4o': {
+                input: 2.50 / 1000000,  // $2.50 per 1M tokens
+                output: 10.00 / 1000000  // $10.00 per 1M tokens
+            },
+            'gpt-4o-mini': {
+                input: 0.15 / 1000000,   // $0.15 per 1M tokens
+                output: 0.60 / 1000000   // $0.60 per 1M tokens
+            },
+            'llama-3.3-70b-versatile': {
+                input: 0,
+                output: 0
+            },
+            'llama-4-scout-17b-16e-instruct': {
+                input: 0,
+                output: 0
+            },
+            'llama-4-maverick-17b-128e-instruct': {
+                input: 0,
+                output: 0
+            }
+        };
         this.initializeUI();
     }
 
@@ -58,7 +86,7 @@ class PixelCharacterGenerator {
         document.getElementById('generateCharacters').addEventListener('click', () => this.generateCharacters());
 
         // Initialize save section
-        document.getElementById('saveCharacter').addEventListener('click', () => this.saveSelectedCharacter());
+        document.getElementById('saveCharacter').addEventListener('click', () => this.showSaveModal(this.selectedCharacter));
 
         // Display saved characters
         this.displaySavedCharacters();
@@ -110,6 +138,15 @@ class PixelCharacterGenerator {
     saveModelSelection(model) {
         this.selectedModel = model;
         localStorage.setItem('selected_model', model);
+        
+        // Reset token totals when model changes
+        this.totalTokens = {
+            input: 0,
+            output: 0,
+            inputPrice: 0,
+            outputPrice: 0
+        };
+        this.updateTotalTokenDisplay();
     }
 
     async generatePromptVariations(originalPrompt) {
@@ -185,7 +222,6 @@ Return ONLY a JSON array of 10 strings, each being a subtle variation of the ori
         generateButton.classList.add('loading');
 
         // Reset UI state
-        document.getElementById('saveSection').classList.add('hidden');
         document.getElementById('generationProgress').classList.remove('hidden');
         document.getElementById('loadingIndicator').classList.remove('hidden');
 
@@ -193,6 +229,40 @@ Return ONLY a JSON array of 10 strings, each being a subtle variation of the ori
         this.characters = [];
 
         try {
+            // Reset token counters
+            this.totalTokens = { input: 0, output: 0 };
+            document.getElementById('tokenUsageTotal').classList.remove('hidden');
+            this.updateTotalTokenDisplay();
+
+            // Reset and hide all progress steps initially
+            document.querySelectorAll('.progress-cell').forEach(cell => {
+                // Reset token counters
+                cell.querySelector('.input-tokens').textContent = '0';
+                cell.querySelector('.output-tokens').textContent = '0';
+                
+                // Find all progress steps
+                const steps = cell.querySelectorAll('.progress-step');
+                steps.forEach((step, index) => {
+                    if (index === 0) {
+                        // Show planning step
+                        step.classList.remove('hidden');
+                        step.querySelector('.planningNotes').textContent = 'Planning character...';
+                    } else {
+                        // Hide other steps
+                        step.classList.add('hidden');
+                    }
+                });
+
+                // Clear any existing text
+                const currentPart = cell.querySelector('.currentPart');
+                const partProgress = cell.querySelector('.partProgress');
+                const finalizingNotes = cell.querySelector('.finalizingNotes');
+                
+                if (currentPart) currentPart.textContent = '';
+                if (partProgress) partProgress.style.setProperty('--progress-width', '0%');
+                if (finalizingNotes) finalizingNotes.textContent = '';
+            });
+
             // Create 6 generators
             const generators = Array.from({ length: 6 }, () => {
                 const generator = new CharacterGenerator();
@@ -201,23 +271,37 @@ Return ONLY a JSON array of 10 strings, each being a subtle variation of the ori
                 return generator;
             });
 
-            // Prepare character cells and progress cells
+            // Generate all characters in parallel
+            const characterPromises = generators.map((generator, index) => 
+                this.generateSingleCharacter(generator, prompt, index)
+                    .then(character => {
+                        if (character) {
+                            return this.finalizeSingleCharacter(generator, prompt, index, character);
+                        }
+                        return null;
+                    })
+                    .catch(error => {
+                        console.error(`Error with character ${index}:`, error);
+                        return null;
+                    })
+            );
+
+            // Wait for all characters to complete
+            this.characters = (await Promise.all(characterPromises)).filter(char => char !== null);
+
+            // Handle the character grid display
             const characterGrid = document.getElementById('characterGrid');
-            characterGrid.innerHTML = '';
-            for (let i = 0; i < 6; i++) {
-                const characterCell = document.createElement('div');
-                characterCell.className = 'character-cell';
-                characterCell.id = `character-${i}`;
-                characterGrid.appendChild(characterCell);
+            if (characterGrid) {
+                characterGrid.style.display = 'none';
             }
 
-            // Generate all characters in parallel
-            this.characters = await Promise.all(generators.map((generator, index) => 
-                this.generateSingleCharacter(generator, prompt, index)
-            ));
-
-            // Display all completed characters
-            this.displayCharacters();
+            // Show save section if any characters were generated
+            if (this.characters.length > 0) {
+                const saveSection = document.getElementById('saveSection');
+                if (saveSection) {
+                    saveSection.classList.remove('hidden');
+                }
+            }
         } catch (error) {
             console.error('Error generating characters:', error);
             alert('Error generating characters. Please try again.');
@@ -231,17 +315,33 @@ Return ONLY a JSON array of 10 strings, each being a subtle variation of the ori
 
     async generateSingleCharacter(generator, prompt, index) {
         const progressCell = document.getElementById(`progress-${index}`);
-        const characterCell = document.getElementById(`character-${index}`);
+        const previewContainer = progressCell.querySelector('.character-preview-wrapper');
         
         try {
+            // Get all progress steps
+            const steps = progressCell.querySelectorAll('.progress-step');
+            const planningStep = steps[0];
+            const generatingStep = steps[1];
+            const finalizingStep = steps[2];
+
             // Plan the character parts
-            progressCell.querySelector('.planningNotes').textContent = 'Planning character parts...';
+            planningStep.querySelector('.planningNotes').textContent = 'Planning character parts...';
             const plan = await generator.planCharacterParts(
                 this.selectedModel.startsWith('llama') ? this.groqApiKey : this.apiKey,
                 prompt,
                 this.selectedModel
             );
-            progressCell.querySelector('.planningNotes').textContent = plan.design_notes;
+            
+            // Update token count from planning
+            if (plan && plan.usage) {
+                console.log(`Planning tokens for character ${index}:`, plan.usage);
+                this.updateTokenDisplay(index, plan.usage.prompt_tokens || plan.usage.input_tokens || 0, plan.usage.completion_tokens || plan.usage.output_tokens || 0);
+            }
+            
+            planningStep.querySelector('.planningNotes').textContent = plan.design_notes;
+
+            // Show the "Generating Parts" step now that we're starting generation
+            generatingStep.classList.remove('hidden');
 
             // Generate each part in sequence
             let isComplete = false;
@@ -250,8 +350,8 @@ Return ONLY a JSON array of 10 strings, each being a subtle variation of the ori
 
             while (!isComplete) {
                 const currentPart = plan.parts[currentPartIndex];
-                progressCell.querySelector('.currentPart').textContent = `Generating ${currentPart.name}...`;
-                progressCell.querySelector('.partProgress').style.setProperty('--progress-width', `${(currentPartIndex / totalParts) * 100}%`);
+                generatingStep.querySelector('.currentPart').textContent = `Generating ${currentPart.name}...`;
+                generatingStep.querySelector('.partProgress').style.setProperty('--progress-width', `${((currentPartIndex + 1) / totalParts) * 100}%`);
 
                 const result = await generator.generateNextPart(
                     this.selectedModel.startsWith('llama') ? this.groqApiKey : this.apiKey,
@@ -259,145 +359,265 @@ Return ONLY a JSON array of 10 strings, each being a subtle variation of the ori
                     this.selectedModel
                 );
                 
-                // Update the display after each part
-                if (generator.currentCharacter && characterCell) {
-                    const previewElement = generator.currentCharacter.createPreviewElement(true);
-                    characterCell.innerHTML = ''; // Clear previous preview
-                    characterCell.appendChild(previewElement);
+                // Update token count from part generation immediately
+                if (result && result.usage) {
+                    console.log(`Part generation tokens for character ${index}, part ${currentPartIndex}:`, result.usage);
+                    this.updateTokenDisplay(index, result.usage.prompt_tokens || result.usage.input_tokens || 0, result.usage.completion_tokens || result.usage.output_tokens || 0);
+                }
+
+                // Update the preview after each part
+                if (generator.currentCharacter) {
+                    let canvas = previewContainer.querySelector('canvas');
+                    if (!canvas) {
+                        canvas = document.createElement('canvas');
+                        previewContainer.appendChild(canvas);
+                    }
+                    generator.currentCharacter.render(canvas);
                 }
 
                 isComplete = result.isComplete;
                 currentPartIndex++;
             }
 
-            // Finalize the character
-            progressCell.querySelector('.finalizingNotes').textContent = 'Making final adjustments...';
-            const finalCharacter = await generator.finalizeCharacter(
-                this.selectedModel.startsWith('llama') ? this.groqApiKey : this.apiKey,
-                prompt,
-                this.selectedModel
-            );
-            progressCell.querySelector('.finalizingNotes').textContent = 'Character complete!';
-            progressCell.querySelector('.partProgress').style.setProperty('--progress-width', '100%');
-
-            return finalCharacter;
+            return generator.currentCharacter;
         } catch (error) {
             console.error(`Error generating character ${index}:`, error);
             if (progressCell) {
-                progressCell.querySelector('.planningNotes').textContent = 'Error occurred during planning.';
-                progressCell.querySelector('.currentPart').textContent = '';
-                progressCell.querySelector('.finalizingNotes').textContent = 'Generation failed.';
+                const steps = progressCell.querySelectorAll('.progress-step');
+                if (steps[0]) steps[0].querySelector('.planningNotes').textContent = 'Error occurred during planning.';
+                if (steps[1]) steps[1].querySelector('.currentPart').textContent = '';
+                if (steps[2]) steps[2].querySelector('.finalizingNotes').textContent = 'Generation failed.';
             }
             throw error;
         }
     }
 
+    async finalizeSingleCharacter(generator, prompt, index, character) {
+        const progressCell = document.getElementById(`progress-${index}`);
+        if (!progressCell) return character;
+
+        const previewContainer = progressCell.querySelector('.character-preview-wrapper');
+        const spinner = previewContainer?.querySelector('.character-spinner');
+        
+        try {
+            // Get all progress steps
+            const steps = progressCell.querySelectorAll('.progress-step');
+            const finalizingStep = steps[2];
+            if (!finalizingStep) return character;
+
+            // Show the "Finalizing" step now that we're starting finalization
+            finalizingStep.classList.remove('hidden');
+            const finalizingNotes = finalizingStep.querySelector('.finalizingNotes');
+            if (finalizingNotes) {
+                finalizingNotes.textContent = 'Making final adjustments...';
+            }
+            
+            const finalResult = await generator.finalizeCharacter(
+                this.selectedModel.startsWith('llama') ? this.groqApiKey : this.apiKey,
+                prompt,
+                this.selectedModel
+            );
+            
+            // Update token count from finalization
+            if (finalResult?.usage) {
+                console.log(`Finalization tokens for character ${index}:`, finalResult.usage);
+                this.updateTokenDisplay(index, 
+                    finalResult.usage.prompt_tokens || finalResult.usage.input_tokens || 0, 
+                    finalResult.usage.completion_tokens || finalResult.usage.output_tokens || 0
+                );
+            }
+
+            // Check if we have a valid finalization result
+            if (!finalResult?.finalResult?.add && !finalResult?.finalResult?.modify && !finalResult?.finalResult?.remove) {
+                console.log(`No finalization changes for character ${index}`);
+                if (finalizingNotes) {
+                    finalizingNotes.textContent = 'Character complete! (no final adjustments needed)';
+                }
+                
+                // Hide the spinner
+                if (spinner) {
+                    spinner.classList.add('hidden');
+                }
+
+                return character;
+            }
+
+            // Update the preview with finalized character
+            if (finalResult.character) {
+                const canvas = previewContainer?.querySelector('canvas');
+                if (canvas) {
+                    finalResult.character.render(canvas);
+                }
+
+                if (finalizingNotes) {
+                    finalizingNotes.textContent = 'Character complete!';
+                }
+
+                const partProgress = finalizingStep.querySelector('.partProgress');
+                if (partProgress) {
+                    partProgress.style.setProperty('--progress-width', '100%');
+                }
+                
+                // Hide the spinner
+                if (spinner) {
+                    spinner.classList.add('hidden');
+                }
+
+                return finalResult.character;
+            }
+
+            // If we get here, something went wrong with finalization
+            console.warn(`Invalid finalization result structure for character ${index}`);
+            if (finalizingNotes) {
+                finalizingNotes.textContent = 'Using original character (finalization failed)';
+            }
+            
+            // Hide the spinner
+            if (spinner) {
+                spinner.classList.add('hidden');
+            }
+
+            return character;
+
+        } catch (error) {
+            console.error(`Error finalizing character ${index}:`, error);
+            const finalizingNotes = progressCell.querySelector('.finalizingNotes');
+            if (finalizingNotes) {
+                finalizingNotes.textContent = 'Using original character (finalization failed)';
+            }
+            
+            // Hide the spinner
+            if (spinner) {
+                spinner.classList.add('hidden');
+            }
+
+            return character;
+        }
+    }
+
     displayCharacters() {
         const grid = document.getElementById('characterGrid');
-        grid.innerHTML = '';
+        if (!grid) return;
         
-        this.characters.forEach(character => {
+        grid.innerHTML = '';
+        grid.style.display = 'grid'; // Make sure grid is visible
+        
+        this.characters.forEach((character, index) => {
             const element = character.createPreviewElement(true);
+            element.addEventListener('click', () => this.showSaveModal(character));
             grid.appendChild(element);
         });
     }
 
-    async saveSelectedCharacter() {
-        const selectedCard = document.querySelector('.character-card.selected');
-        if (!selectedCard) {
-            alert('Please select a character to save');
-            return;
-        }
+    showSaveModal(character) {
+        const modal = document.getElementById('saveCharacterModal');
+        const nameInput = document.getElementById('modalCharacterName');
+        const saveButton = document.getElementById('modalSaveButton');
+        const cancelButton = document.getElementById('modalCancelButton');
 
-        const characterId = selectedCard.dataset.characterId;
-        const character = this.characters.find(c => c.id === characterId);
-        if (!character) {
-            alert('Character not found');
-            return;
-        }
+        // Reset input
+        nameInput.value = '';
 
-        const name = document.getElementById('characterName').value.trim();
-        if (!name) {
-            alert('Please enter a name for your character');
-            return;
-        }
+        // Show modal
+        modal.classList.remove('hidden');
 
-        if (!this.apiKey) {
-            alert('Please set your OpenAI API key first');
-            return;
-        }
+        // Setup event listeners
+        const handleSave = async () => {
+            const name = nameInput.value.trim();
+            if (!name) {
+                alert('Please enter a name for your character');
+                return;
+            }
 
+            if (!this.apiKey) {
+                alert('Please set your OpenAI API key first');
+                return;
+            }
+
+            try {
+                // Show loading state
+                saveButton.disabled = true;
+                saveButton.textContent = 'Saving...';
+
+                // Save the character
+                await this.saveCharacter(character, name);
+
+                // Hide modal
+                modal.classList.add('hidden');
+
+                // Redirect to character details page
+                window.location.href = `character-details.html?id=${character.id}`;
+            } catch (error) {
+                console.error('Error saving character:', error);
+                alert('Error saving character. Please try again.');
+                saveButton.disabled = false;
+                saveButton.textContent = 'Save Character';
+            }
+        };
+
+        const handleCancel = () => {
+            modal.classList.add('hidden');
+            // Remove event listeners
+            saveButton.removeEventListener('click', handleSave);
+            cancelButton.removeEventListener('click', handleCancel);
+        };
+
+        // Add event listeners
+        saveButton.addEventListener('click', handleSave);
+        cancelButton.addEventListener('click', handleCancel);
+
+        // Focus the input
+        nameInput.focus();
+    }
+
+    async saveCharacter(character, name) {
         character.name = name;
 
-        // Generate stats using our new probability-based system
+        // Generate stats using our probability-based system
         const rolls = StatRoller.generateStats();
 
-        try {
-            // Disable button and show spinner
-            const saveButton = document.getElementById('saveCharacter');
-            saveButton.disabled = true;
-            saveButton.classList.add('loading');
+        // Convert character to PNG and get base64
+        const canvas = document.createElement('canvas');
+        const size = character.gridSize;
+        canvas.width = size;
+        canvas.height = size;
+        character.render(canvas);
+        const imageBase64 = canvas.toDataURL('image/png').split(',')[1];
 
-            // Convert character to PNG and get base64
-            const canvas = document.createElement('canvas');
-            const size = character.gridSize;
-            canvas.width = size;
-            canvas.height = size;
-            character.render(canvas);
-            const imageBase64 = canvas.toDataURL('image/png').split(',')[1];
-
-            const content = await LLMUtils.query(
-                this.apiKey,
-                Prompts.getCharacterAnalysisPrompt(),
-                [
-                    {
-                        type: 'text',
-                        text: `Please analyze this character named "${character.name}". This character was generated based on the concept: ${character.generationPrompt}. Random rolls are:\nStrength: ${rolls.strength}\nDexterity: ${rolls.dexterity}\nConstitution: ${rolls.constitution}\nIntelligence: ${rolls.intelligence}\nWisdom: ${rolls.wisdom}\nCharisma: ${rolls.charisma}`
-                    },
-                    {
-                        type: 'image_url',
-                        image_url: {
-                            url: `data:image/png;base64,${imageBase64}`
-                        }
+        const content = await LLMUtils.query(
+            this.apiKey,
+            Prompts.getCharacterAnalysisPrompt(),
+            [
+                {
+                    type: 'text',
+                    text: `Please analyze this character named "${character.name}". This character was generated based on the concept: ${character.generationPrompt}. Random rolls are:\nStrength: ${rolls.strength}\nDexterity: ${rolls.dexterity}\nConstitution: ${rolls.constitution}\nIntelligence: ${rolls.intelligence}\nWisdom: ${rolls.wisdom}\nCharisma: ${rolls.charisma}`
+                },
+                {
+                    type: 'image_url',
+                    image_url: {
+                        url: `data:image/png;base64,${imageBase64}`
                     }
-                ],
-                { expectedSchema: Prompts.getCharacterAnalysisSchema(rolls) },
-                0.2
-            );
-            
-            // Update character metadata
-            character.metadata = {
-                stats: content.stats,
-                equipmentSlots: content.equipmentSlots.map(slot => ({
-                    ...slot,
-                    equipment: null // Initialize with no equipment
-                })),
-                description: content.description,
-                generationPrompt: character.generationPrompt // Store the original prompt in metadata
-            };
+                }
+            ],
+            { expectedSchema: Prompts.getCharacterAnalysisSchema(rolls) },
+            0.2
+        );
+        
+        // Update character metadata
+        character.metadata = {
+            stats: content.stats,
+            equipmentSlots: content.equipmentSlots.map(slot => ({
+                ...slot,
+                equipment: null // Initialize with no equipment
+            })),
+            description: content.description,
+            generationPrompt: character.generationPrompt
+        };
 
-            // Save character and redirect
-            this.savedCharacters.push(character);
-            this.saveTolocalStorage();
-            this.displaySavedCharacters();
-
-            // Reset UI
-            document.getElementById('characterName').value = '';
-            document.getElementById('saveSection').classList.add('hidden');
-            selectedCard.classList.remove('selected');
-
-            // Redirect to character details page
-            window.location.href = `character-details.html?id=${character.id}`;
-
-        } catch (error) {
-            console.error('Error generating character details:', error);
-            alert('Error generating character details. Please try again.');
-            
-            // Re-enable button and hide spinner
-            const saveButton = document.getElementById('saveCharacter');
-            saveButton.disabled = false;
-            saveButton.classList.remove('loading');
-        }
+        // Save character
+        this.savedCharacters.push(character);
+        this.saveTolocalStorage();
+        this.displaySavedCharacters();
     }
 
     loadSavedCharacters() {
@@ -439,6 +659,89 @@ Return ONLY a JSON array of 10 strings, each being a subtle variation of the ori
             container.appendChild(viewButton);
             grid.appendChild(container);
         });
+    }
+
+    updateTokenDisplay(index, inputTokens, outputTokens) {
+        if (!inputTokens && !outputTokens) return;
+
+        console.log(`Updating tokens for character ${index}:`, { input: inputTokens, output: outputTokens });
+        const progressCell = document.getElementById(`progress-${index}`);
+        if (!progressCell) return;
+
+        const inputCounter = progressCell.querySelector('.input-tokens');
+        const outputCounter = progressCell.querySelector('.output-tokens');
+        const inputPrice = progressCell.querySelector('.input-price');
+        const outputPrice = progressCell.querySelector('.output-price');
+        const totalPrice = progressCell.querySelector('.total-price');
+        
+        if (!inputCounter || !outputCounter || !inputPrice || !outputPrice || !totalPrice) return;
+        
+        // Get current values
+        const currentInput = parseInt(inputCounter.textContent) || 0;
+        const currentOutput = parseInt(outputCounter.textContent) || 0;
+        
+        // Calculate new values
+        const newInput = currentInput + (inputTokens || 0);
+        const newOutput = currentOutput + (outputTokens || 0);
+        
+        // Calculate prices
+        const prices = this.modelPrices[this.selectedModel];
+        const newInputPrice = newInput * prices.input;
+        const newOutputPrice = newOutput * prices.output;
+        const newTotalPrice = newInputPrice + newOutputPrice;
+        
+        // Update displays
+        inputCounter.textContent = newInput;
+        outputCounter.textContent = newOutput;
+        inputPrice.textContent = `$${newInputPrice.toFixed(4)}`;
+        outputPrice.textContent = `$${newOutputPrice.toFixed(4)}`;
+        totalPrice.textContent = `$${newTotalPrice.toFixed(4)}`;
+        
+        console.log(`New token totals for character ${index}:`, { 
+            input: newInput, 
+            output: newOutput,
+            inputPrice: newInputPrice,
+            outputPrice: newOutputPrice,
+            totalPrice: newTotalPrice
+        });
+        
+        // Update totals
+        this.totalTokens.input += (inputTokens || 0);
+        this.totalTokens.output += (outputTokens || 0);
+        this.totalTokens.inputPrice += (inputTokens || 0) * prices.input;
+        this.totalTokens.outputPrice += (outputTokens || 0) * prices.output;
+        this.updateTotalTokenDisplay();
+    }
+
+    updateTotalTokenDisplay() {
+        const totalDisplay = document.getElementById('tokenUsageTotal');
+        if (!totalDisplay) return;
+
+        // Get current model prices
+        const prices = this.modelPrices[this.selectedModel] || { input: 0, output: 0 };
+
+        // Calculate total prices
+        const inputPrice = (this.totalTokens.input || 0) * prices.input;
+        const outputPrice = (this.totalTokens.output || 0) * prices.output;
+        const totalPrice = inputPrice + outputPrice;
+
+        // Update display elements with safe values
+        const elements = {
+            'total-input-tokens': this.totalTokens.input || 0,
+            'total-output-tokens': this.totalTokens.output || 0,
+            'total-tokens': (this.totalTokens.input || 0) + (this.totalTokens.output || 0),
+            'total-input-price': `$${inputPrice.toFixed(4)}`,
+            'total-output-price': `$${outputPrice.toFixed(4)}`,
+            'total-price': `$${totalPrice.toFixed(4)}`
+        };
+
+        // Update each element if it exists
+        for (const [className, value] of Object.entries(elements)) {
+            const element = totalDisplay.querySelector(`.${className}`);
+            if (element) {
+                element.textContent = value;
+            }
+        }
     }
 }
 

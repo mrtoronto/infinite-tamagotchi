@@ -19,6 +19,11 @@ class LLMUtils {
         try {
             // Determine API endpoint based on model
             let url = 'https://api.openai.com/v1/chat/completions';
+            let headers = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+            };
+
             if (model.startsWith('llama')) {
                 url = 'https://api.groq.com/openai/v1/chat/completions';
                 // Use Groq API key for Llama models
@@ -30,12 +35,12 @@ class LLMUtils {
                 }
             }
 
+            // Add CORS mode and credentials
             const response = await fetch(url, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`,
-                },
+                headers: headers,
+                mode: 'cors',
+                credentials: 'omit',
                 body: JSON.stringify({
                     model: finalOptions.model,
                     messages: [
@@ -66,7 +71,10 @@ class LLMUtils {
             let content = data.choices[0].message.content;
 
             if (finalOptions.parseJson) {
-                return LLMUtils.parseJsonResponse(content);
+                const parsedContent = LLMUtils.parseJsonResponse(content);
+                // Add raw response data including token usage
+                parsedContent._raw = data;
+                return parsedContent;
             }
 
             return content;

@@ -65,6 +65,16 @@
         <div id="generationProgress" class="generation-progress hidden">
             <div class="progress-grid">
                 <div class="progress-cell" id="progress-0">
+                    <div class="character-preview-container">
+                        <div class="character-preview-wrapper">
+                            <div class="character-spinner"></div>
+                        </div>
+                    </div>
+                    <div class="token-counter">
+                        <div>Input Tokens: <span class="input-tokens">0</span> (<span class="input-price">$0.00</span>)</div>
+                        <div>Output Tokens: <span class="output-tokens">0</span> (<span class="output-price">$0.00</span>)</div>
+                        <div>Total Cost: <span class="total-price">$0.00</span></div>
+                    </div>
                     <div class="progress-step">
                         <h3>Planning Character Parts</h3>
                         <div class="planningNotes progress-notes"></div>
@@ -80,6 +90,16 @@
                     </div>
                 </div>
                 <div class="progress-cell" id="progress-1">
+                    <div class="character-preview-container">
+                        <div class="character-preview-wrapper">
+                            <div class="character-spinner"></div>
+                        </div>
+                    </div>
+                    <div class="token-counter">
+                        <div>Input Tokens: <span class="input-tokens">0</span> (<span class="input-price">$0.00</span>)</div>
+                        <div>Output Tokens: <span class="output-tokens">0</span> (<span class="output-price">$0.00</span>)</div>
+                        <div>Total Cost: <span class="total-price">$0.00</span></div>
+                    </div>
                     <div class="progress-step">
                         <h3>Planning Character Parts</h3>
                         <div class="planningNotes progress-notes"></div>
@@ -95,6 +115,16 @@
                     </div>
                 </div>
                 <div class="progress-cell" id="progress-2">
+                    <div class="character-preview-container">
+                        <div class="character-preview-wrapper">
+                            <div class="character-spinner"></div>
+                        </div>
+                    </div>
+                    <div class="token-counter">
+                        <div>Input Tokens: <span class="input-tokens">0</span> (<span class="input-price">$0.00</span>)</div>
+                        <div>Output Tokens: <span class="output-tokens">0</span> (<span class="output-price">$0.00</span>)</div>
+                        <div>Total Cost: <span class="total-price">$0.00</span></div>
+                    </div>
                     <div class="progress-step">
                         <h3>Planning Character Parts</h3>
                         <div class="planningNotes progress-notes"></div>
@@ -110,6 +140,16 @@
                     </div>
                 </div>
                 <div class="progress-cell" id="progress-3">
+                    <div class="character-preview-container">
+                        <div class="character-preview-wrapper">
+                            <div class="character-spinner"></div>
+                        </div>
+                    </div>
+                    <div class="token-counter">
+                        <div>Input Tokens: <span class="input-tokens">0</span> (<span class="input-price">$0.00</span>)</div>
+                        <div>Output Tokens: <span class="output-tokens">0</span> (<span class="output-price">$0.00</span>)</div>
+                        <div>Total Cost: <span class="total-price">$0.00</span></div>
+                    </div>
                     <div class="progress-step">
                         <h3>Planning Character Parts</h3>
                         <div class="planningNotes progress-notes"></div>
@@ -125,6 +165,16 @@
                     </div>
                 </div>
                 <div class="progress-cell" id="progress-4">
+                    <div class="character-preview-container">
+                        <div class="character-preview-wrapper">
+                            <div class="character-spinner"></div>
+                        </div>
+                    </div>
+                    <div class="token-counter">
+                        <div>Input Tokens: <span class="input-tokens">0</span> (<span class="input-price">$0.00</span>)</div>
+                        <div>Output Tokens: <span class="output-tokens">0</span> (<span class="output-price">$0.00</span>)</div>
+                        <div>Total Cost: <span class="total-price">$0.00</span></div>
+                    </div>
                     <div class="progress-step">
                         <h3>Planning Character Parts</h3>
                         <div class="planningNotes progress-notes"></div>
@@ -140,6 +190,16 @@
                     </div>
                 </div>
                 <div class="progress-cell" id="progress-5">
+                    <div class="character-preview-container">
+                        <div class="character-preview-wrapper">
+                            <div class="character-spinner"></div>
+                        </div>
+                    </div>
+                    <div class="token-counter">
+                        <div>Input Tokens: <span class="input-tokens">0</span> (<span class="input-price">$0.00</span>)</div>
+                        <div>Output Tokens: <span class="output-tokens">0</span> (<span class="output-price">$0.00</span>)</div>
+                        <div>Total Cost: <span class="total-price">$0.00</span></div>
+                    </div>
                     <div class="progress-step">
                         <h3>Planning Character Parts</h3>
                         <div class="planningNotes progress-notes"></div>
@@ -157,21 +217,19 @@
             </div>
         </div>
 
+        <!-- Token Usage Total -->
+        <div id="tokenUsageTotal" class="token-usage-total hidden">
+            <h3>Total Token Usage</h3>
+            <div>Input Tokens: <span class="total-input-tokens">0</span> (<span class="total-input-price">$0.00</span>)</div>
+            <div>Output Tokens: <span class="total-output-tokens">0</span> (<span class="total-output-price">$0.00</span>)</div>
+            <div>Total Tokens: <span class="total-tokens">0</span></div>
+            <div>Total Cost: <span class="total-price">$0.00</span></div>
+        </div>
+
         <!-- Loading Indicator -->
         <div id="loadingIndicator" class="loading-indicator hidden">
             <div class="spinner"></div>
             <p>Generating characters...</p>
-        </div>
-
-        <!-- Character Grid -->
-        <div id="characterGrid" class="character-grid">
-            <!-- Characters will be dynamically added here -->
-            <div class="character-cell" id="character-0"></div>
-            <div class="character-cell" id="character-1"></div>
-            <div class="character-cell" id="character-2"></div>
-            <div class="character-cell" id="character-3"></div>
-            <div class="character-cell" id="character-4"></div>
-            <div class="character-cell" id="character-5"></div>
         </div>
 
         <!-- Save Character Section -->
@@ -237,6 +295,19 @@
                 <div class="custom-color">
                     <input type="color" id="customBackgroundColor" value="#f0f0f0" title="Choose custom color">
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save Character Modal -->
+    <div id="saveCharacterModal" class="modal hidden">
+        <div class="modal-content">
+            <h2>Save Character</h2>
+            <p>Give your character a name to save it:</p>
+            <input type="text" id="modalCharacterName" placeholder="Enter character name">
+            <div class="modal-buttons">
+                <button id="modalCancelButton">Cancel</button>
+                <button id="modalSaveButton">Save Character</button>
             </div>
         </div>
     </div>
