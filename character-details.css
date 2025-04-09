@@ -404,4 +404,62 @@
     background-color: var(--preview-background);
     border: 1px solid var(--border-color);
     border-radius: 4px;
+}
+
+.parent-info {
+    margin-top: 2rem;
+    padding: 1rem;
+    background-color: var(--background-color);
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.parent-characters {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.parent-character {
+    flex: 1;
+    padding: 1rem;
+    background-color: var(--secondary-background);
+    border-radius: 4px;
+    text-align: center;
+}
+
+.parent-character a {
+    color: var(--accent-color);
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.parent-character a:hover {
+    text-decoration: underline;
+}
+
+.characters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.character-card {
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    padding: 1rem;
+    background-color: var(--secondary-background);
+    border-radius: 4px;
+    text-align: center;
+}
+
+.character-card:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+.character-name {
+    margin-top: 0.5rem;
+    font-weight: bold;
 } 

@@ -9,6 +9,8 @@ class Character {
         this.metadata = null;
         this.imageVersions = []; // Store different versions of the character
         this.currentVersion = 0; // Index of current version
+        this.parents = null; // Store parent character IDs if this is a combined character
+        this.interactionType = null; // Store the type of interaction that created this character
     }
 
     // Convert character data to a storable format
@@ -22,7 +24,8 @@ class Character {
             generationPrompt: this.generationPrompt,
             variationPrompt: this.variationPrompt,
             imageVersions: this.imageVersions,
-            currentVersion: this.currentVersion
+            currentVersion: this.currentVersion,
+            parents: this.parents
         };
     }
 
@@ -33,6 +36,7 @@ class Character {
         character.metadata = data.metadata;
         character.imageVersions = data.imageVersions || [];
         character.currentVersion = data.currentVersion || 0;
+        character.parents = data.parents || null;
         return character;
     }
 

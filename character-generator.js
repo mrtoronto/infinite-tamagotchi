@@ -384,6 +384,146 @@ Shape type must be: ${this.enableCircles ? '"rectangle" or "circle"' : '"rectang
         }
     }
 
+    async planCharacterCombination(apiKey, parentDescription, model = 'gpt-4o-mini') {
+        const planningPrompt = `You are an expert character designer. Your task is to plan out how to combine two existing characters into a new, cohesive character that represents a meaningful interaction between them.
+
+Character 1:
+- Name: ${parentDescription.firstCharacter.name}
+- Description: ${parentDescription.firstCharacter.description}
+- Parts: ${JSON.stringify(parentDescription.firstCharacter.parts, null, 2)}
+
+Character 2:
+- Name: ${parentDescription.secondCharacter.name}
+- Description: ${parentDescription.secondCharacter.description}
+- Parts: ${JSON.stringify(parentDescription.secondCharacter.parts, null, 2)}
+
+Consider how these two characters would interact and what the result of that interaction would be. For example:
+- A tree and a chainsaw might create a stump or a broken chainsaw
+- A fire and water might create steam or a boiling pot
+- A knight and a dragon might create a dragon knight or a knight's armor made from dragon scales
+- A ghost and a robot might create a haunted robot or a mechanical ghost
+
+The new character should represent the RESULT of their interaction, not just a combination of their parts. Think about:
+1. What would happen if these two characters/entities interacted?
+2. What would be the natural outcome of their interaction?
+3. How would their characteristics blend or transform in the result?
+4. What new qualities might emerge from their combination?
+
+For any character, you MUST include:
+1. Eyes - Essential for bringing the character to life
+2. Mouth - Critical for expression and personality
+
+Then, determine what other parts are needed based on the semantic combination of both characters. Consider:
+- How the interaction result manifests physically
+- What elements from each parent are transformed in the result
+- How to maintain visual cohesion while representing the interaction outcome
+- How to create a new character that feels like a natural result of the parents' interaction
+
+IMPORTANT: The new character should be a fresh creation that represents the outcome of the parents' interaction, not just a direct combination of their parts. Consider:
+- How the parents' interaction changes their original forms
+- What new qualities emerge from their combination
+- How to represent the transformation or result of their interaction
+- How to blend color schemes and design elements in a way that shows the interaction's effect
+
+For each part, provide specific design guidance that ensures cohesion with the overall character.
+Consider:
+- How this part connects visually with others
+- Specific color relationships between parts
+- Texture and style consistency
+- Size and proportion relationships
+- How it contributes to the character's personality
+- Any unique features or details it should have
+
+Return ONLY a JSON object with:
+{
+    "parts": [
+        {
+            "id": "unique_id",
+            "name": "part name",
+            "description": "brief description of this part's role in the character",
+            "design_guidance": "Specific instructions for how this part should be designed to maintain cohesion",
+            "suggested_colors": ["#HEX1", "#HEX2"],
+            "z_index_range": {"min": 0, "max": 100}
+        }
+    ],
+    "design_notes": "Brief notes about the overall character design strategy",
+    "color_strategy": "How colors should work together across all parts",
+    "style_guide": "Specific style elements that should be consistent across all parts",
+    "combination_strategy": "How the two characters interact and what the result represents",
+    "interaction_result": "A description of what happens when these two characters interact and what the result represents"
+}
+
+The parts MUST be ordered in a logical way for layered construction (background to foreground).
+Eyes and mouth should be among the last parts added to ensure they appear on top.`;
+
+        try {
+            const response = await LLMUtils.query(
+                apiKey,
+                planningPrompt,
+                null,
+                {
+                    expectedSchema: {
+                        type: 'object',
+                        properties: {
+                            parts: {
+                                type: 'array',
+                                items: {
+                                    type: 'object',
+                                    properties: {
+                                        id: { type: 'string' },
+                                        name: { type: 'string' },
+                                        description: { type: 'string' },
+                                        design_guidance: { type: 'string' },
+                                        suggested_colors: {
+                                            type: 'array',
+                                            items: { type: 'string' }
+                                        },
+                                        z_index_range: {
+                                            type: 'object',
+                                            properties: {
+                                                min: { type: 'number' },
+                                                max: { type: 'number' }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            design_notes: { type: 'string' },
+                            color_strategy: { type: 'string' },
+                            style_guide: { type: 'string' },
+                            combination_strategy: { type: 'string' },
+                            interaction_result: { type: 'string' }
+                        }
+                    }
+                },
+                0.7,
+                model
+            );
+
+            this.currentParts = response.parts;
+            this.currentPartIndex = 0;
+            this.designNotes = response.design_notes;
+            this.colorStrategy = response.color_strategy;
+            this.styleGuide = response.style_guide;
+            this.combinationStrategy = response.combination_strategy;
+            this.interactionResult = response.interaction_result;
+
+            // Return both the response data and token usage
+            return {
+                parts: response.parts,
+                design_notes: response.design_notes,
+                color_strategy: response.color_strategy,
+                style_guide: response.style_guide,
+                combination_strategy: response.combination_strategy,
+                interaction_result: response.interaction_result,
+                usage: response._raw?.usage || { input_tokens: 0, output_tokens: 0 }
+            };
+        } catch (error) {
+            console.error('Error planning character combination:', error);
+            throw error;
+        }
+    }
+
     reset() {
         this.currentCharacter = null;
         this.currentParts = [];

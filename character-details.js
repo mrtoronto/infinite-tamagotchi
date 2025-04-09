@@ -17,6 +17,9 @@ class CharacterDetails {
         
         // Add delete button after download button
         document.getElementById('downloadButton').after(deleteButton);
+
+        // Initialize combine button
+        document.getElementById('combineButton').addEventListener('click', () => this.showCharacterSelection());
     }
 
     loadCharacter() {
@@ -61,10 +64,38 @@ class CharacterDetails {
         
         // Display generation prompts
         document.getElementById('generationPrompt').textContent = this.character.generationPrompt || 'No generation prompt available';
-        document.getElementById('variationPrompt').textContent = this.character.variationPrompt || 'No variation prompt available';
+        document.getElementById('variationPrompt').textContent = this.character.metadata.planningNotes || 'No planning notes available';
 
         // Display character description
         document.getElementById('characterDescription').textContent = this.character.metadata.description;
+
+        // Display parent information if available
+        if (this.character.parents) {
+            const parentInfo = document.createElement('div');
+            parentInfo.className = 'parent-info';
+            
+            // Add interaction type if available
+            const interactionType = this.character.interactionType ? 
+                `<div class="interaction-type">Interaction Type: ${this.character.interactionType}</div>` : '';
+            
+            parentInfo.innerHTML = `
+                <h3>Parents</h3>
+                <div class="parent-characters">
+                    <div class="parent-character">
+                        <a href="character-details.html?id=${this.character.parents.firstParent.id}">
+                            ${this.character.parents.firstParent.name}
+                        </a>
+                    </div>
+                    <div class="parent-character">
+                        <a href="character-details.html?id=${this.character.parents.secondParent.id}">
+                            ${this.character.parents.secondParent.name}
+                        </a>
+                    </div>
+                </div>
+                ${interactionType}
+            `;
+            document.querySelector('.generation-prompt').after(parentInfo);
+        }
 
         // Render character portrait
         const canvas = document.getElementById('characterPortrait');
@@ -648,6 +679,89 @@ class CharacterDetails {
         // Refresh display
         this.displayCharacter();
         this.displayEquipment(this.character.metadata.equipmentSlots);
+    }
+
+    showCharacterSelection() {
+        // Load saved characters
+        const savedCharacters = JSON.parse(localStorage.getItem('saved_characters') || '[]')
+            .map(charData => Character.fromJSON(charData))
+            .filter(char => char.id !== this.character.id); // Exclude current character
+
+        if (savedCharacters.length === 0) {
+            alert('No other characters available to combine with.');
+            return;
+        }
+
+        // Create modal for character selection
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        
+        const modalContent = document.createElement('div');
+        modalContent.className = 'modal-content';
+        
+        const closeButton = document.createElement('span');
+        closeButton.className = 'close-button';
+        closeButton.innerHTML = '&times;';
+        closeButton.addEventListener('click', () => modal.remove());
+        
+        const title = document.createElement('h2');
+        title.textContent = 'Select Character to Combine With';
+        
+        const charactersGrid = document.createElement('div');
+        charactersGrid.className = 'characters-grid';
+        
+        savedCharacters.forEach(character => {
+            const characterCard = document.createElement('div');
+            characterCard.className = 'character-card';
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = character.gridSize;
+            canvas.height = character.gridSize;
+            character.render(canvas);
+            
+            const name = document.createElement('div');
+            name.className = 'character-name';
+            name.textContent = character.name;
+            
+            characterCard.appendChild(canvas);
+            characterCard.appendChild(name);
+            characterCard.addEventListener('click', () => this.confirmCharacterSelection(character, modal));
+            
+            charactersGrid.appendChild(characterCard);
+        });
+        
+        modalContent.appendChild(closeButton);
+        modalContent.appendChild(title);
+        modalContent.appendChild(charactersGrid);
+        modal.appendChild(modalContent);
+        document.body.appendChild(modal);
+    }
+
+    async confirmCharacterSelection(secondCharacter, modal) {
+        if (!confirm(`Combine ${this.character.name} with ${secondCharacter.name}?`)) {
+            return;
+        }
+
+        // Store the parent information
+        const parentInfo = {
+            firstParent: {
+                id: this.character.id,
+                name: this.character.name
+            },
+            secondParent: {
+                id: secondCharacter.id,
+                name: secondCharacter.name
+            }
+        };
+
+        // Store the parent information in localStorage to be used by the home page
+        localStorage.setItem('pending_combination', JSON.stringify(parentInfo));
+
+        // Close the modal
+        modal.remove();
+
+        // Redirect to home page
+        window.location.href = 'index.html';
     }
 }
 

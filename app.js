@@ -38,6 +38,23 @@ class PixelCharacterGenerator {
             }
         };
         this.initializeUI();
+        this.checkForPendingCombination();
+    }
+
+    checkForPendingCombination() {
+        const pendingCombination = localStorage.getItem('pending_combination');
+        if (pendingCombination) {
+            const parentInfo = JSON.parse(pendingCombination);
+            localStorage.removeItem('pending_combination');
+            
+            // Find the parent characters
+            const firstCharacter = this.savedCharacters.find(char => char.id === parentInfo.firstParent.id);
+            const secondCharacter = this.savedCharacters.find(char => char.id === parentInfo.secondParent.id);
+            
+            if (firstCharacter && secondCharacter) {
+                this.combineCharacters(firstCharacter, secondCharacter);
+            }
+        }
     }
 
     initializeUI() {
@@ -409,7 +426,7 @@ Return ONLY a JSON array of 10 strings, each being a subtle variation of the ori
             finalizingStep.classList.remove('hidden');
             const finalizingNotes = finalizingStep.querySelector('.finalizingNotes');
             if (finalizingNotes) {
-                finalizingNotes.textContent = 'Making final adjustments...';
+                finalizingNotes.textContent = 'Making final adjustments and generating name...';
             }
             
             const finalResult = await generator.finalizeCharacter(
@@ -427,12 +444,169 @@ Return ONLY a JSON array of 10 strings, each being a subtle variation of the ori
                 );
             }
 
+            // Generate a name for the character
+            const namePrompt = `Create a unique and creative name for this character based on its description and design notes. The character is a pixel art creation with the following details:
+
+Character Description: ${character.metadata?.description || 'No description available'}
+Design Notes: ${steps[0].querySelector('.planningNotes').textContent}
+
+The name should:
+1. Be creative, whimsical, and descriptive
+2. Reflect the character's personality, appearance, and traits
+3. Use creative word combinations or portmanteaus
+4. Be memorable and unique
+5. Never use generic names like "character" or numbers
+6. Be based on the character's key traits and design elements
+
+Examples of good names:
+- For a playful tree: "Whimblewood", "Bramblebloom", "Sproutsy"
+- For a friendly robot: "Gizmoflux", "Sparklebot", "Cogsworth"
+- For a magical creature: "Mystifluff", "Glowspark", "Twinkletoes"
+
+Return ONLY the name as a string.`;
+            
+            const nameResponse = await LLMUtils.query(
+                this.selectedModel.startsWith('llama') ? this.groqApiKey : this.apiKey,
+                namePrompt,
+                null,
+                { expectedSchema: { type: 'string' } },
+                0.8 // Higher temperature for more creative names
+            );
+
+            // Set the generated name, ensuring it's a string
+            let characterName = '';
+            if (typeof nameResponse === 'string') {
+                characterName = nameResponse.trim();
+            } else if (nameResponse && typeof nameResponse === 'object') {
+                // Try to extract name from object if it's not a string
+                characterName = nameResponse.name || nameResponse.text || nameResponse.content || '';
+                if (typeof characterName !== 'string') {
+                    characterName = '';
+                }
+            }
+            
+            // If we couldn't get a valid name, generate a creative one based on the planning text
+            if (!characterName || characterName.toLowerCase().includes('character')) {
+                const planningText = steps[0].querySelector('.planningNotes').textContent.toLowerCase();
+                
+                // Extract key traits and elements
+                const traits = planningText.match(/\b(playful|friendly|whimsical|warm|strong|stable|magical|mystical|energetic|lively)\b/g) || [];
+                const elements = planningText.match(/\b(tree|wood|leaf|branch|root|bark|nature|forest|garden|plant)\b/g) || [];
+                
+                // Create creative combinations
+                const prefixes = ['Whim', 'Bram', 'Sprout', 'Leaf', 'Bark', 'Root', 'Twig', 'Branch', 'Forest', 'Garden'];
+                const suffixes = ['wood', 'bloom', 'leaf', 'bark', 'root', 'twig', 'branch', 'sprout', 'blossom', 'grove'];
+                
+                // Combine traits and elements creatively
+                if (traits.length > 0 && elements.length > 0) {
+                    characterName = traits[0].charAt(0).toUpperCase() + traits[0].slice(1) + elements[0].charAt(0).toUpperCase() + elements[0].slice(1);
+                } else {
+                    // Fallback to creative prefix-suffix combination
+                    const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+                    const suffix = suffixes[Math.floor(Math.random() * suffixes.length)];
+                    characterName = prefix + suffix;
+                }
+            }
+            
+            character.name = characterName;
+
+            // Create save button and container
+            const saveContainer = document.createElement('div');
+            saveContainer.className = 'save-character-container';
+            
+            const saveButton = document.createElement('button');
+            saveButton.className = 'save-character-button';
+            saveButton.textContent = 'Save Character';
+
+            // Add spinner element to button
+            const spinner = document.createElement('div');
+            spinner.className = 'button-spinner';
+            saveButton.appendChild(spinner);
+
+            saveContainer.appendChild(saveButton);
+
+            // Display the generated name and save button
+            if (finalizingNotes) {
+                finalizingNotes.innerHTML = `Character complete! Name: ${characterName}`;
+                finalizingNotes.appendChild(saveContainer);
+            }
+
+            saveButton.addEventListener('click', async () => {
+                try {
+                    // Add spinner to button
+                    saveButton.classList.add('loading');
+                    saveButton.disabled = true;
+
+                    // Generate stats using our probability-based system
+                    const rolls = StatRoller.generateStats();
+
+                    // Convert character to PNG and get base64
+                    const canvas = document.createElement('canvas');
+                    const size = character.gridSize;
+                    canvas.width = size;
+                    canvas.height = size;
+                    character.render(canvas);
+                    const imageBase64 = canvas.toDataURL('image/png').split(',')[1];
+
+                    const content = await LLMUtils.query(
+                        this.apiKey,
+                        Prompts.getCharacterAnalysisPrompt(),
+                        [
+                            {
+                                type: 'text',
+                                text: `Please analyze this character named "${character.name}". This character was generated based on the concept: ${character.generationPrompt}. Random rolls are:\nStrength: ${rolls.strength}\nDexterity: ${rolls.dexterity}\nConstitution: ${rolls.constitution}\nIntelligence: ${rolls.intelligence}\nWisdom: ${rolls.wisdom}\nCharisma: ${rolls.charisma}`
+                            },
+                            {
+                                type: 'image_url',
+                                image_url: {
+                                    url: `data:image/png;base64,${imageBase64}`
+                                }
+                            }
+                        ],
+                        { expectedSchema: Prompts.getCharacterAnalysisSchema(rolls) },
+                        0.2
+                    );
+                    
+                    // Get the planning notes from the progress step
+                    const planningNotes = steps[0].querySelector('.planningNotes').textContent;
+                    
+                    // Update character metadata
+                    character.metadata = {
+                        stats: content.stats,
+                        equipmentSlots: content.equipmentSlots.map(slot => ({
+                            ...slot,
+                            equipment: null // Initialize with no equipment
+                        })),
+                        description: content.description,
+                        generationPrompt: character.generationPrompt,
+                        planningNotes: planningNotes // Save the planning notes
+                    };
+
+                    // Save character
+                    this.savedCharacters.push(character);
+                    this.saveTolocalStorage();
+                    this.displaySavedCharacters();
+
+                    // Remove the entire progress cell
+                    progressCell.remove();
+                    
+                    // Update the finalizing notes
+                    finalizingNotes.textContent = `Character "${characterName}" saved successfully!`;
+                    
+                    // Remove the save button
+                    saveContainer.remove();
+                } catch (error) {
+                    console.error('Error saving character:', error);
+                    finalizingNotes.textContent = 'Error saving character. Please try again.';
+                    // Remove loading state
+                    saveButton.classList.remove('loading');
+                    saveButton.disabled = false;
+                }
+            });
+
             // Check if we have a valid finalization result
             if (!finalResult?.finalResult?.add && !finalResult?.finalResult?.modify && !finalResult?.finalResult?.remove) {
                 console.log(`No finalization changes for character ${index}`);
-                if (finalizingNotes) {
-                    finalizingNotes.textContent = 'Character complete! (no final adjustments needed)';
-                }
                 
                 // Hide the spinner
                 if (spinner) {
@@ -447,10 +621,6 @@ Return ONLY a JSON array of 10 strings, each being a subtle variation of the ori
                 const canvas = previewContainer?.querySelector('canvas');
                 if (canvas) {
                     finalResult.character.render(canvas);
-                }
-
-                if (finalizingNotes) {
-                    finalizingNotes.textContent = 'Character complete!';
                 }
 
                 const partProgress = finalizingStep.querySelector('.partProgress');
@@ -503,9 +673,19 @@ Return ONLY a JSON array of 10 strings, each being a subtle variation of the ori
         grid.style.display = 'grid'; // Make sure grid is visible
         
         this.characters.forEach((character, index) => {
+            const container = document.createElement('div');
+            container.className = 'character-card';
+            container.dataset.characterId = character.id;
+            
             const element = character.createPreviewElement(true);
-            element.addEventListener('click', () => this.showSaveModal(character));
-            grid.appendChild(element);
+            container.appendChild(element);
+            
+            // Add click handler to save the character
+            container.addEventListener('click', () => {
+                this.handleCharacterClick(character);
+            });
+            
+            grid.appendChild(container);
         });
     }
 
@@ -640,23 +820,23 @@ Return ONLY a JSON array of 10 strings, each being a subtle variation of the ori
 
     displaySavedCharacters() {
         const grid = document.getElementById('savedCharacters');
+        if (!grid) return;
+        
         grid.innerHTML = '';
         
         this.savedCharacters.forEach(character => {
             const container = document.createElement('div');
-            container.className = 'saved-character-container';
+            container.className = 'character-card';
+            container.dataset.characterId = character.id;
             
             const element = character.createPreviewElement(false);
+            container.appendChild(element);
             
-            const viewButton = document.createElement('button');
-            viewButton.textContent = 'View Details';
-            viewButton.className = 'view-details-button';
-            viewButton.addEventListener('click', () => {
+            // Add click handler to view details
+            container.addEventListener('click', () => {
                 window.location.href = `character-details.html?id=${character.id}`;
             });
             
-            container.appendChild(element);
-            container.appendChild(viewButton);
             grid.appendChild(container);
         });
     }
@@ -741,6 +921,259 @@ Return ONLY a JSON array of 10 strings, each being a subtle variation of the ori
             if (element) {
                 element.textContent = value;
             }
+        }
+    }
+
+    async generateCombinedCharacter(generator, firstCharacter, secondCharacter, index) {
+        const progressCell = document.getElementById(`progress-${index}`);
+        const previewContainer = progressCell.querySelector('.character-preview-wrapper');
+        
+        try {
+            // Get all progress steps
+            const steps = progressCell.querySelectorAll('.progress-step');
+            const planningStep = steps[0];
+            const generatingStep = steps[1];
+            const finalizingStep = steps[2];
+
+            // Plan the character parts
+            planningStep.querySelector('.planningNotes').textContent = 'Planning character combination...';
+            
+            // Create a detailed description of both parent characters
+            const parentDescription = {
+                firstCharacter: {
+                    name: firstCharacter.name,
+                    description: firstCharacter.metadata?.description || 'No description available',
+                    parts: firstCharacter.shapes.map(shape => ({
+                        name: shape.type,
+                        color: shape.color,
+                        shape: shape.type,
+                        position: { x: shape.x, y: shape.y }
+                    }))
+                },
+                secondCharacter: {
+                    name: secondCharacter.name,
+                    description: secondCharacter.metadata?.description || 'No description available',
+                    parts: secondCharacter.shapes.map(shape => ({
+                        name: shape.type,
+                        color: shape.color,
+                        shape: shape.type,
+                        position: { x: shape.x, y: shape.y }
+                    }))
+                }
+            };
+
+            const plan = await generator.planCharacterCombination(
+                this.selectedModel.startsWith('llama') ? this.groqApiKey : this.apiKey,
+                parentDescription,
+                this.selectedModel
+            );
+            
+            // Update token count from planning
+            if (plan && plan.usage) {
+                this.updateTokenDisplay(index, plan.usage.prompt_tokens || plan.usage.input_tokens || 0, plan.usage.completion_tokens || plan.usage.output_tokens || 0);
+            }
+            
+            planningStep.querySelector('.planningNotes').textContent = plan.design_notes;
+
+            // Show the "Generating Parts" step now that we're starting generation
+            generatingStep.classList.remove('hidden');
+
+            // Generate each part in sequence
+            let isComplete = false;
+            const totalParts = plan.parts.length;
+            let currentPartIndex = 0;
+
+            while (!isComplete) {
+                const currentPart = plan.parts[currentPartIndex];
+                generatingStep.querySelector('.currentPart').textContent = `Generating ${currentPart.name}...`;
+                generatingStep.querySelector('.partProgress').style.setProperty('--progress-width', `${((currentPartIndex + 1) / totalParts) * 100}%`);
+
+                const result = await generator.generateNextPart(
+                    this.selectedModel.startsWith('llama') ? this.groqApiKey : this.apiKey,
+                    plan.prompt,
+                    this.selectedModel
+                );
+                
+                // Update token count from part generation
+                if (result && result.usage) {
+                    this.updateTokenDisplay(index, result.usage.prompt_tokens || result.usage.input_tokens || 0, result.usage.completion_tokens || result.usage.output_tokens || 0);
+                }
+
+                // Update the preview after each part
+                if (generator.currentCharacter) {
+                    let canvas = previewContainer.querySelector('canvas');
+                    if (!canvas) {
+                        canvas = document.createElement('canvas');
+                        previewContainer.appendChild(canvas);
+                    }
+                    generator.currentCharacter.render(canvas);
+                }
+
+                isComplete = result.isComplete;
+                currentPartIndex++;
+            }
+
+            return generator.currentCharacter;
+        } catch (error) {
+            console.error(`Error generating combined character ${index}:`, error);
+            if (progressCell) {
+                const steps = progressCell.querySelectorAll('.progress-step');
+                if (steps[0]) steps[0].querySelector('.planningNotes').textContent = 'Error occurred during planning.';
+                if (steps[1]) steps[1].querySelector('.currentPart').textContent = '';
+                if (steps[2]) steps[2].querySelector('.finalizingNotes').textContent = 'Generation failed.';
+            }
+            throw error;
+        }
+    }
+
+    // Add method to handle character click and save
+    handleCharacterClick(character) {
+        if (!character) return;
+
+        const confirmation = confirm(`Would you like to save this character named "${character.name}"?`);
+        if (confirmation) {
+            // Check if character already exists in saved characters
+            const existingIndex = this.savedCharacters.findIndex(c => c.id === character.id);
+            if (existingIndex === -1) {
+                // Add to saved characters
+                this.savedCharacters.push(character);
+                this.saveTolocalStorage();
+                
+                // Remove from progress cells
+                const progressCells = document.querySelectorAll('.progress-cell');
+                progressCells.forEach(cell => {
+                    const previewContainer = cell.querySelector('.character-preview-wrapper');
+                    if (previewContainer && previewContainer.querySelector('canvas')) {
+                        const canvas = previewContainer.querySelector('canvas');
+                        if (canvas && canvas.dataset.characterId === character.id) {
+                            previewContainer.innerHTML = '<div class="character-spinner"></div>';
+                        }
+                    }
+                });
+                
+                // Update saved characters display
+                this.displaySavedCharacters();
+                
+                alert('Character saved successfully!');
+            } else {
+                alert('This character is already saved!');
+            }
+        }
+    }
+
+    async combineCharacters(firstCharacter, secondCharacter) {
+        if (!firstCharacter || !secondCharacter) {
+            alert('Invalid characters selected for combination');
+            return;
+        }
+
+        // Reset UI state
+        document.getElementById('generationProgress').classList.remove('hidden');
+        document.getElementById('loadingIndicator').classList.remove('hidden');
+
+        // Clear previous characters array
+        this.characters = [];
+
+        try {
+            // Reset token counters
+            this.totalTokens = { input: 0, output: 0 };
+            document.getElementById('tokenUsageTotal').classList.remove('hidden');
+            this.updateTotalTokenDisplay();
+
+            // Reset and hide all progress steps initially
+            document.querySelectorAll('.progress-cell').forEach(cell => {
+                // Reset token counters
+                cell.querySelector('.input-tokens').textContent = '0';
+                cell.querySelector('.output-tokens').textContent = '0';
+                
+                // Find all progress steps
+                const steps = cell.querySelectorAll('.progress-step');
+                steps.forEach((step, index) => {
+                    if (index === 0) {
+                        // Show planning step
+                        step.classList.remove('hidden');
+                        step.querySelector('.planningNotes').textContent = 'Planning character combination...';
+                    } else {
+                        // Hide other steps
+                        step.classList.add('hidden');
+                    }
+                });
+
+                // Clear any existing text
+                const currentPart = cell.querySelector('.currentPart');
+                const partProgress = cell.querySelector('.partProgress');
+                const finalizingNotes = cell.querySelector('.finalizingNotes');
+                
+                if (currentPart) currentPart.textContent = '';
+                if (partProgress) partProgress.style.setProperty('--progress-width', '0%');
+                if (finalizingNotes) finalizingNotes.textContent = '';
+            });
+
+            // Create 6 generators with different interaction types
+            const interactionTypes = [
+                'transformation',    // One character transforms the other
+                'fusion',           // Characters merge into a new form
+                'conflict',         // Characters fight/compete, showing the result
+                'symbiosis',        // Characters work together in harmony
+                'corruption',       // One character corrupts/influences the other
+                'evolution'         // Characters evolve into something new
+            ];
+
+            const generators = Array.from({ length: 6 }, (_, index) => {
+                const generator = new CharacterGenerator();
+                generator.gridSize = this.gridSize;
+                generator.enableCircles = this.enableCircles;
+                generator.interactionType = interactionTypes[index];
+                return generator;
+            });
+
+            // Create a generation prompt that includes parent information and interaction type
+            const generationPrompt = `Combine ${firstCharacter.name} (${firstCharacter.metadata?.description || 'No description available'}) with ${secondCharacter.name} (${secondCharacter.metadata?.description || 'No description available'})`;
+
+            // Generate all characters in parallel
+            const characterPromises = generators.map((generator, index) => 
+                this.generateCombinedCharacter(generator, firstCharacter, secondCharacter, index)
+                    .then(character => {
+                        if (character) {
+                            // Set parent information and generation prompt on the character
+                            character.parents = {
+                                firstParent: {
+                                    id: firstCharacter.id,
+                                    name: firstCharacter.name
+                                },
+                                secondParent: {
+                                    id: secondCharacter.id,
+                                    name: secondCharacter.name
+                                }
+                            };
+                            character.generationPrompt = generationPrompt;
+                            character.interactionType = generator.interactionType;
+                            return this.finalizeSingleCharacter(generator, generationPrompt, index, character);
+                        }
+                        return null;
+                    })
+                    .catch(error => {
+                        console.error(`Error with character ${index}:`, error);
+                        return null;
+                    })
+            );
+
+            // Wait for all characters to complete
+            this.characters = (await Promise.all(characterPromises)).filter(char => char !== null);
+
+            // Automatically save all generated characters
+            if (this.characters.length > 0) {
+                this.characters.forEach(character => {
+                    this.savedCharacters.push(character);
+                });
+                this.saveTolocalStorage();
+                this.displaySavedCharacters();
+            }
+        } catch (error) {
+            console.error('Error combining characters:', error);
+            alert('Error combining characters. Please try again.');
+        } finally {
+            document.getElementById('loadingIndicator').classList.add('hidden');
         }
     }
 }
