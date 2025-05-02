@@ -2,6 +2,9 @@
 
 A creative pixel art character generator that uses AI to create unique, interactive characters with RPG-like stats and equipment systems.
 
+<img width="1328" alt="image" src="https://github.com/user-attachments/assets/a36aa4e0-1bc3-44be-a730-b032a4276dea" />
+
+
 **Try it now: [https://mrtoronto.github.io/infinite-tamagotchi/](https://mrtoronto.github.io/infinite-tamagotchi/)**
 
 ## Features
@@ -40,13 +43,22 @@ A creative pixel art character generator that uses AI to create unique, interact
 ## Screenshots
 
 ### Character Generation
-[Insert screenshot of character generation interface]
+<img width="605" alt="image" src="https://github.com/user-attachments/assets/8135fd26-3a36-4bcf-9fce-be365e45ee1c" />
+
+<img width="600" alt="image" src="https://github.com/user-attachments/assets/3137c2a4-e233-4db8-a726-ebd1f16386c3" />
+
+
 
 ### Character Details
-[Insert screenshot of character details page]
+<img width="897" alt="image" src="https://github.com/user-attachments/assets/2d8e90f4-e817-4621-b890-a1cf8832d0ee" />
+
 
 ### Character Combination
-[Insert screenshot of character combination results]
+<img width="1253" alt="image" src="https://github.com/user-attachments/assets/464bd4a9-e722-461e-85f2-5afd7c323742" />
+
+<img width="591" alt="image" src="https://github.com/user-attachments/assets/9e4ac673-6b1e-4942-8cf9-234dd7681f49" />
+
+
 
 ## Setup
 
